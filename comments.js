@@ -1,30 +1,63 @@
 // create a server
-const express = require('express');
-const app = express();
-const bodyParser = require('body-parser');
+const http = require('http');
+const fs = require('fs');
+const qs = require('querystring');
+const url = require('url');
 
-app.use(bodyParser.json());
+const server = http.createServer((req, res) => {
+  const { method, url: reqUrl } = req;
 
-// create a fake database
-const comments = [
-  {id: 1, author: 'John', text: 'Hello World'},
-  {id: 2, author: 'Jane', text: 'React is awesome'}
-];
+  if (method === 'GET') {
+    if (reqUrl === '/') {
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      fs.createReadStream('index.html').pipe(res);
+    } else if (reqUrl === '/comments') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      fs.createReadStream('comments.json').pipe(res);
+    } else {
+      res.writeHead(404, { 'Content-Type': 'text/html' });
+      res.end('404 Not Found');
+    }
+  } else if (method === 'POST') {
+    if (reqUrl === '/comments') {
+      let body = '';
+      req.on('data', (chunk) => {
+        body += chunk.toString();
+      });
+      req.on('end', () => {
+        const { comment } = qs.parse(body);
+        fs.readFile('comments.json', (err, data) => {
+          if (err) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Server error' }));
+            return;
+          }
 
-// get all comments
-app.get('/comments', (req, res) => {
-  res.send(comments);
+          const comments = JSON.parse(data);
+          comments.push(comment);
+
+          fs.writeFile('comments.json', JSON.stringify(comments), (err) => {
+            if (err) {
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Server error' }));
+              return;
+            }
+
+            res.writeHead(201, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ message: 'Comment added' }));
+          });
+        });
+      });
+    } else {
+      res.writeHead(404, { 'Content-Type': 'text/html' });
+      res.end('404 Not Found');
+    }
+  } else {
+    res.writeHead(405, { 'Content-Type': 'text/html' });
+    res.end('405 Method Not Allowed');
+  }
 });
 
-// add a comment
-app.post('/comments', (req, res) => {
-  const newComment = req.body;
-  newComment.id = comments.length + 1;
-  comments.push(newComment);
-  res.send(newComment);
-});
-
-// start the server
-app.listen(3001, () => {
-  console.log('Server started on http://localhost:3001');
+server.listen(3000, () => {
+  console.log('Server is running on http://localhost:3000');
 });

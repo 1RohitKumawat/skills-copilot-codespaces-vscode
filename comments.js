@@ -1,41 +1,30 @@
 // create a server
-var http = require('http');
-var url = require('url');
-var fs = require('fs');
-var path = require('path');
-var comments = [];
-var server = http.createServer(function(req, res) {
-    var parseUrl = url.parse(req.url, true);
-    var pathname = parseUrl.pathname;
-    if(pathname === '/') {
-        fs.readFile('./index.html', function(err, data) {
-            if(err) {
-                console.log(err);
-                res.end('404 Not Found');
-            } else {
-                res.writeHead(200, {'Content-Type': 'text/html'});
-                res.end(data);
-            }
-        });
-    } else if(pathname === '/submit') {
-        var comment = parseUrl.query;
-        comments.push(comment);
-        res.end('submit success');
-    } else if(pathname === '/getComments') {
-        var str = JSON.stringify(comments);
-        res.end(str);
-    } else {
-        var filepath = path.join(__dirname, pathname);
-        fs.readFile(filepath, function(err, data) {
-            if(err) {
-                console.log(err);
-                res.end('404 Not Found');
-            } else {
-                res.end(data);
-            }
-        });
-    }
+const express = require('express');
+const app = express();
+const bodyParser = require('body-parser');
+
+app.use(bodyParser.json());
+
+// create a fake database
+const comments = [
+  {id: 1, author: 'John', text: 'Hello World'},
+  {id: 2, author: 'Jane', text: 'React is awesome'}
+];
+
+// get all comments
+app.get('/comments', (req, res) => {
+  res.send(comments);
 });
-server.listen(3000, function() {
-    console.log('listening on 3000');
+
+// add a comment
+app.post('/comments', (req, res) => {
+  const newComment = req.body;
+  newComment.id = comments.length + 1;
+  comments.push(newComment);
+  res.send(newComment);
+});
+
+// start the server
+app.listen(3001, () => {
+  console.log('Server started on http://localhost:3001');
 });
